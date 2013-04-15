@@ -1,0 +1,23 @@
+{
+  "name": "simplepush",
+  "version": "0.0.0",
+  "description": "SimplePush server for node",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": "",
+  "keywords": [
+    "simplepush"
+  ],
+  "author": "Zach Carter",
+  "license": "APL 2.0",
+  "dependencies": {
+    "convict": "~0.1.0",
+    "uuid": "~1.4.1",
+    "websocket": "~1.0.8",
+    "async": "~0.2.7",
+    "redis": "~0.8.3",
+    "request": "~2.16.6"
+  }
+}
