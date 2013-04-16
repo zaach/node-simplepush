@@ -22,6 +22,7 @@ proto.init = function(cb) {
   var self = this;
 
   this._reqs = {};
+  this._channels = {};
 
   var client = new WebSocketClient();
 
@@ -108,7 +109,8 @@ proto.register = function(cb) {
 proto._handleRegister = function(reply) {
   try {
     if (reply.status === 200) {
-      this._reqs['reg' + reply.channelID](null, reply);
+      this._channels[reply.channelID] = new events.EventEmitter();
+      this._reqs['reg' + reply.channelID](null, reply, this._channels[reply.channelID]);
     } else {
       this._reqs['reg' + reply.channelID](reply.status);
     }
@@ -137,17 +139,15 @@ proto._handleUnregister = function(reply) {
   }
 
   delete this._reqs['reg' + reply.channelID];
+  delete this._channels[reply.channelID];
 };
 
 proto._handleNotification = function(reply) {
-  this._pushEmitter.emit('push', reply);
+  var client = this;
+  reply.updates.forEach(function(channel) {
+    client._channels[channel.channelID].emit('push', channel);
+  });
   this._send('ack', { updates: reply.updates });
-};
-
-proto.on = function(type, cb) {
-  if (type === 'push') {
-    this._pushEmitter.on(type, cb);
-  }
 };
 
 
