@@ -131,7 +131,9 @@ function SimplePush(options, cb) {
           var uaHandler = handler.bind(null, uaid, connection);
           emitter.on(uaid, uaHandler);
           connection.on('close', function() {
-            emitter.removeListener(uaHandler);
+            try {
+              emitter.removeListener(uaHandler);
+            } catch(e) {}
           });
 
         } else if (uaid && data.messageType === 'register') {
