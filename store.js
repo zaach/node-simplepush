@@ -25,7 +25,7 @@ function kvstore(options) {
         });
       },
       delete: function(id, cb) {
-        client.del(id, cb);
+        client.del(id, function(err) { cb(err); });
       }
     };
   } else {
