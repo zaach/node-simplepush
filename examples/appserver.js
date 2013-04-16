@@ -1,65 +1,6 @@
 var http = require('http');
-var async = require('async');
 var qs = require('querystring');
 var request = require('request');
-var SimplePush = require('../simplepush.js');
-var SimplePushClient = require('../client.js');
-
-var userAppServerUrl = 'http://localhost:8181/user/42';
-
-var options = {
-  endpoint: 'http://localhost:8180',
-  port: 8180,
-  db: {
-    redis: true
-  }
-};
-
-// Start the SimplePush server
-SimplePush(options, function(err, server) {
-  console.log((new Date()) + ' SimplePush Server is listening on port 8180');
-
-  // Create a new UserAgent client
-  var client = new SimplePushClient({ pushServer: 'ws://localhost:8180' });
-
-  client.init(function() {
-    // register for a new channel
-    client.register(function(err, reply) {
-      if (err) {
-        console.log('error', reply);
-        return;
-      }
-
-      console.log('success', reply);
-
-      // send endpoint to appserver
-      request.post(userAppServerUrl + '/endpoint', { form: { endpoint: reply.pushEndpoint } }, function(err, res) {
-
-        // Update user data on AppServer to trigger a push notification
-        request.post(userAppServerUrl + '/update', { form: { foo: 'bar' } }, function(err, res) {
-
-
-        });
-      });
-
-    });
-  });
-
-  // handle push notifications
-  client.on('push', function(reply) {
-    console.log('received push notification!', reply);
-
-    var channel = reply.updates[0];
-    console.log('channel received update', channel);
-
-    // Unregister the channel
-    client.unregister(channel.channelID, function(res) {
-      console.log('unregistered', res);
-    });
-  });
-
-});
-
 
 // Sample Application Server
 // It stores push server endpoints and version numbers for each user
@@ -115,7 +56,7 @@ var appServer = http.createServer(function(req, res) {
         users[uid].endpoints.forEach(function(ep) {
           console.log('sending notification update to push server', version, ep);
           request.put(ep, { form: { version: version } }, function(err, res) {
-            console.log('appserver notified pushserver!!', err, res.statusCode);
+            console.log('appserver notified pushserver', err, res.statusCode);
           });
         });
 
