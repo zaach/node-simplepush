@@ -1,6 +1,7 @@
 var uuid = require('uuid');
 var WebSocketServer = require('websocket').server;
 var http = require('http');
+var https = require('https');
 var async = require('async');
 var qs = require('querystring');
 var events = require('events');
@@ -9,23 +10,36 @@ var events = require('events');
 // Creates a SimplePush server
 function SimplePush(options, cb) {
 
-  var ENDPOINT = options.endpoint;
-  var store = require('./store')(options.db);
-  var emitter = new events.EventEmitter();
-  var server = http.createServer(requestCallback);
+  var settings = JSON.parse(JSON.stringify(options));
 
-  wsServer = new WebSocketServer({
+  if (!settings.notifyPrefix) settings.notifyPrefix = '/notify/';
+  if (!settings.host) settings.host = 'localhost';
+  if (!settings.tls) settings.tls = false;
+
+  var store = require('./store')(settings.db);
+  var emitter = new events.EventEmitter();
+  var protocol = settings.tls ? https : http;
+  var server = protocol.createServer(requestCallback);
+
+  var wsServer = new WebSocketServer({
       httpServer: server,
       autoAcceptConnections: false
   });
 
   // We wait until the database has connected to initialize the server
   store.connect(function(err, db) {
-    server.listen(options.port, options.host, function(err) {
-      cb(null, server);
+    server.listen(settings.port, settings.host, function(err) {
+      cb(err, server);
     });
   });
 
+  function channelIDToEndpoint(channelID) {
+    return (settings.tls ? 'https' : 'http') + '://' + settings.host + ':' + settings.port + settings.notifyPrefix + channelID;
+  }
+
+  function endpointToChannelID(endpoint) {
+    return endpoint.split(settings.notifyPrefix)[1];
+  }
 
   // Callback for http server requests
   // Receives version updates from the AppServer for specified channeldIDs
@@ -46,20 +60,17 @@ function SimplePush(options, cb) {
           var data = qs.parse(body);
           var channelID, channel;
 
-          var endpoint = request.url.slice(1);
+          var endpoint = request.url;
           async.waterfall([
             function(cb) {
-              // get the channelID associated with the endpoint
-              store.get('endpoint/' + ENDPOINT + request.url, cb);
-            },
-            function(chID, cb) {
-              if (!chID) return cb('UnkownChannel');
+              var chID = endpointToChannelID(endpoint);
+              if (!chID) return cb('MissingChannelID');
               channelID = chID;
 
               store.get('channel/' + channelID, cb);
             },
             function(ch, cb) {
-              if (!ch) return cb('UnkownChannel');
+              if (!ch) return cb('UnknownChannel');
               channel = ch;
               // store the pending version
               channel.pendingVersion = data.version;
@@ -68,7 +79,11 @@ function SimplePush(options, cb) {
           ], function(err, result) {
             // respond to the appserver
             var status = 200;
-            if (err) status = 500;
+
+            if (err == 'MissingChannelID' ||
+                err == 'UnknownChannel') status = 400;
+            else if (err) status = 500;
+
             response.writeHead(status);
             response.end();
             if (status === 200) {
@@ -199,15 +214,16 @@ function SimplePush(options, cb) {
 
       // Acknowledgement from the UA that it received the notification
       // We update the channel's version with the pending version
-      data.updates.forEach(function(item) {
-        store.get('channel/' + item.channelID, function (err, channel) {
-          console.log('item version', item, channel.pendingVersion);
+      data.updates.forEach(function(update) {
+
+        store.get('channel/' + update.channelID, function (err, channel) {
+
           // update the channel version with the acknowledged version
           // but only if it was currently pending
-          if (channel.pendingVersion === item.version && item.version !== channel.version) {
-            channel.version = item.version;
-            store.set('channel/' + item.channelID, channel, function(err) {
-              console.log('done updating pending for', item.channelID);
+          if (channel.pendingVersion === update.version && update.version !== channel.version) {
+            channel.version = update.version;
+            store.set('channel/' + update.channelID, channel, function(err) {
+              console.log('done updating pending for', update.channelID);
             });
           }
         });
@@ -218,7 +234,6 @@ function SimplePush(options, cb) {
 
   // Utility function for registering a new channel
   function register(uaid, data, cb) {
-    var endpoint = ENDPOINT + '/' + data.channelID;
 
     async.waterfall([
       function(cb) {
@@ -232,18 +247,18 @@ function SimplePush(options, cb) {
       },
       function(cb) {
         // link channel with UAID and endpoint
-        store.set('channel/' + data.channelID, { uaid: uaid, endpoint: endpoint }, cb);
-      },
-      function(cb) {
-        // set end point
-        store.set('endpoint/' + endpoint, data.channelID, function(err) { cb(err, endpoint); });
+        var endpoint = channelIDToEndpoint(data.channelID);
+        store.set('channel/' + data.channelID,
+          { uaid: uaid, endpoint: endpoint },
+          function(err) { cb(err, endpoint); }
+        );
       }
     ], cb);
+
   }
 
   // Utility function for unregistering a channel
   function unregister(uaid, data, cb) {
-    var endpoint;
 
     async.waterfall([
       function(cb) {
@@ -256,13 +271,7 @@ function SimplePush(options, cb) {
         // the UA doesn't match our current UA
         if (channel.uaid !== uaid) return cb('UAMismatch');
 
-        endpoint = channel.endpoint;
-
         store.delete('channel/' + data.channelID, cb);
-      },
-      function(cb) {
-        // delete the endpoint of the channel
-        store.delete('endpoint/' + endpoint, cb);
       },
       function(cb) {
         // get UA info so we can remove this channel from its list
@@ -274,6 +283,7 @@ function SimplePush(options, cb) {
         store.set('uaid/' + uaid, ua, cb);
       }
     ], cb);
+
   }
 
 }
