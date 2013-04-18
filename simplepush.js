@@ -113,17 +113,22 @@ function SimplePush(options, cb) {
 
         // Perform handshake and register new client
         if (data.messageType === 'hello') {
+          if (typeof data.uaid !== 'string' || !data.channelIDs) {
+            return connection.close();
+          }
           uaid = data.uaid || uuid.v4();
 
           if (data.channelIDs) {
-            store.set('uaid/' + uaid, {
-              channelIDs: data.channelIDs
-            }, function(err) {
-              var response = {
-                messageType: 'hello',
-                uaid: uaid
-              };
-              connection.sendUTF(JSON.stringify(response));
+            resyncChannelIDs(uaid, data.channelIDs, function(err) {
+              store.set('uaid/' + uaid, {
+                channelIDs: data.channelIDs
+              }, function(err) {
+                var response = {
+                  messageType: 'hello',
+                  uaid: uaid
+                };
+                connection.sendUTF(JSON.stringify(response));
+              });
             });
           }
 
@@ -154,6 +159,40 @@ function SimplePush(options, cb) {
 
   });
 
+  function resyncChannelIDs(uaid, channelIDs, cb) {
+    var storedChannelIDs;
+
+    async.waterfall([
+      function(cb) {
+        store.get('uaid/' + uaid, cb);
+      },
+      function(ua, cb) {
+        if (!ua) return cb('UnknownUserAgent');
+
+        storedChannelIDs = ua.channelIDs;
+        // delete channels the ua didn't specify
+        async.each(ua.channelIDs, function(channelID, cb) {
+          if (channelIDs.indexOf(channelID) === -1) {
+            store.delete('channel/' + channelID, cb);
+          } else {
+            cb(null);
+          }
+        }, cb);
+      },
+      function(cb) {
+        // reregister channelIDs that the server is missing
+        async.each(channelIDs, function(channelID, cb) {
+          if (storedChannelIDs.indexOf(channelID) === -1) {
+            var endpoint = channelIDToEndpoint(channelID);
+            store.set('channel/' + channelID, { uaid: uaid, endpoint: endpoint }, cb);
+          } else {
+            cb(null);
+          }
+        });
+      }
+    ], cb);
+  }
+
 
   // Handle events for a UserAgent
   // Events include register, unregister, notification, and ack
@@ -163,7 +202,7 @@ function SimplePush(options, cb) {
     if (type === 'register') {
 
       // register the channel and send a response to the UA
-      register(uaid, data, function(err, endpoint) {
+      register(uaid, data.channelID, function(err, endpoint) {
           var status = 200;
           if (err) {
             status = err === 'UAMismatch' ? 409 : 500;
@@ -235,7 +274,7 @@ function SimplePush(options, cb) {
   }
 
   // Utility function for registering a new channel
-  function register(uaid, data, cb) {
+  function register(uaid, channelID, cb) {
 
     async.waterfall([
       function(cb) {
@@ -244,13 +283,13 @@ function SimplePush(options, cb) {
       },
       function(ua, cb) {
         // update list of channels
-        ua.channelIDs.push(data.channelID);
+        ua.channelIDs.push(channelID);
         store.set('uaid/' + uaid, ua, cb);
       },
       function(cb) {
         // link channel with UAID and endpoint
-        var endpoint = channelIDToEndpoint(data.channelID);
-        store.set('channel/' + data.channelID,
+        var endpoint = channelIDToEndpoint(channelID);
+        store.set('channel/' + channelID,
           { uaid: uaid, endpoint: endpoint },
           function(err) { cb(err, endpoint); }
         );
