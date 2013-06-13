@@ -33,7 +33,7 @@ var config = convict({
     }
   },
   db: {
-    redis: true,
+    redis: false,
     host: {
       doc: "The host of the database server",
       default: '127.0.0.1',
