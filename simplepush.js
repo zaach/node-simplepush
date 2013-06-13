@@ -27,7 +27,8 @@ function SimplePush(options, cb) {
   });
 
   // We wait until the database has connected to initialize the server
-  store.connect(function(err, db) {
+  store.connect(function(err) {
+    if (err) return cb(err);
     server.listen(settings.port, settings.host, function(err) {
       cb(err, server);
     });
@@ -76,12 +77,12 @@ function SimplePush(options, cb) {
               channel.pendingVersion = data.version;
               store.set('channel/' + channelID, channel, cb);
             }
-          ], function(err, result) {
+          ], function(err) {
             // respond to the appserver
             var status = 200;
 
-            if (err == 'MissingChannelID' ||
-                err == 'UnknownChannel') status = 400;
+            if (err === 'MissingChannelID' ||
+                err === 'UnknownChannel') status = 400;
             else if (err) status = 500;
 
             response.writeHead(status);
@@ -119,10 +120,10 @@ function SimplePush(options, cb) {
           uaid = data.uaid || uuid.v4();
 
           if (data.channelIDs) {
-            resyncChannelIDs(uaid, data.channelIDs, function(err) {
+            resyncChannelIDs(uaid, data.channelIDs, function() {
               store.set('uaid/' + uaid, {
                 channelIDs: data.channelIDs
-              }, function(err) {
+              }, function() {
                 var response = {
                   messageType: 'hello',
                   uaid: uaid
@@ -154,7 +155,7 @@ function SimplePush(options, cb) {
     });
 
     connection.on('close', function(reasonCode, description) {
-      console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected.');
+      console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected. ' + description);
     });
 
   });
@@ -188,7 +189,7 @@ function SimplePush(options, cb) {
           } else {
             cb(null);
           }
-        });
+        }, cb);
       }
     ], cb);
   }
@@ -223,7 +224,7 @@ function SimplePush(options, cb) {
     } else if (type === 'unregister') {
 
       // unregister the channel and send a response to the UA
-      unregister(uaid, data, function(err, result) {
+      unregister(uaid, data, function(err) {
         var status = 200;
 
         // Don't send 500 errors for UA mismatches or unknown channel IDs
@@ -264,6 +265,7 @@ function SimplePush(options, cb) {
           if (channel.pendingVersion === update.version && update.version !== channel.version) {
             channel.version = update.version;
             store.set('channel/' + update.channelID, channel, function(err) {
+              if (err) console.error(err);
               console.log('done updating pending for', update.channelID);
             });
           }

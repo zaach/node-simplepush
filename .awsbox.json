@@ -1,0 +1,11 @@
+{
+  "processes": [
+    "bin/simplepush"
+  ],
+  "env": {
+    "CONFIG_FILES": "$HOME/code/config/aws.json,$HOME/config.json"
+  },
+  "remote_hooks": {
+    "postcreate": "scripts/install-redis.sh"
+  }
+}

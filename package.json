@@ -4,20 +4,28 @@
   "description": "SimplePush server for node",
   "main": "simplepush.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "./node_modules/.bin/mocha -R spec --recursive --timeout 10000",
+    "start": "node ./bin/simplepush"
   },
   "repository": "",
   "keywords": [
-    "simplepush"
+    "simplepush",
+    "push",
+    "server"
   ],
   "author": "Zach Carter",
   "license": "APL 2.0",
   "dependencies": {
-    "convict": "~0.1.0",
-    "uuid": "~1.4.1",
-    "websocket": "~1.0.8",
-    "async": "~0.2.7",
-    "redis": "~0.8.3",
-    "request": "~2.16.6"
+    "convict": "0.3.2",
+    "uuid": "1.4.1",
+    "websocket": "1.0.8",
+    "async": "0.2.7",
+    "redis": "0.8.3",
+    "request": "2.16.6"
+  },
+  "devDependencies": {
+    "mocha": "1.10.0",
+    "awsbox": "0.4.5",
+    "jshint": "0.9.1"
   }
 }

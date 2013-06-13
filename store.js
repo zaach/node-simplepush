@@ -18,8 +18,9 @@ function kvstore(options) {
       },
       get: function(id, cb) {
         client.get(id, function(err, val) {
+          var res;
           try {
-            var res = JSON.parse(val);
+            res = JSON.parse(val);
           } catch (e) { return cb(e); }
           cb(err, res);
         });

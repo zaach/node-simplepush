@@ -5,7 +5,6 @@
 
 var WebSocketClient = require('websocket').client;
 var uuid = require('uuid');
-var request = require('request');
 var events = require('events');
 
 function SimplePushClient (options) {

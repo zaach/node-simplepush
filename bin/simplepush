@@ -1,0 +1,9 @@
+var SimplePush = require('../simplepush');
+var config = require('../config');
+
+var options = config.get('server');
+options.db = config.get('db');
+
+SimplePush(options, function(err, server) {
+    console.log((new Date()) + ' Server is listening on port ' + options.port);
+});

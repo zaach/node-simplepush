@@ -35,21 +35,24 @@ client.init(function() {
       'content-type': 'application/json',
       headers: { Authorization: 'testtoken' },
       body: JSON.stringify({ endpoint: reply.pushEndpoint })
-    }, function() {
+    }, function(err, res) {
+      console.log(res);
       // Update user data on AppServer to trigger a push notification
       request.post(userAppServerUrl + '/storage/col1', {
         'content-type': 'application/json',
         headers: { Authorization: 'testtoken' },
         body: JSON.stringify([{ id: 'one', payload: 'TESTONE' }])
-      }, function() {
+      }, function(err, res) {
         console.log('user data updated');
+        console.log(res);
 
         // delete endpoint from appserver
         request.del(userAppServerUrl + '/endpoint', {
           'content-type': 'application/json',
           headers: { Authorization: 'testtoken' },
           body: JSON.stringify({ endpoint: reply.pushEndpoint })
-        }, function() {
+        }, function(err, res) {
+          console.log(res);
           console.log('endpoint deleted', reply.pushEndpoint);
         });
 
