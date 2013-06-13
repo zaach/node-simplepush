@@ -11,7 +11,8 @@ var config = convict({
   public_url: {
     format: "url",
     // the real url is set by awsbox
-    default: "http://127.0.0.1:8180"
+    default: "http://127.0.0.1:8180",
+    env: 'PUBLIC_URL'
   },
   server: {
     tls: {
@@ -50,5 +51,18 @@ var config = convict({
     }
   }
 });
+
+
+// handle configuration files.  you can specify a CSV list of configuration
+// files to process, which will be overlayed in order, in the CONFIG_FILES
+// environment variable
+if (process.env.CONFIG_FILES) {
+  var files = process.env.CONFIG_FILES.split(',');
+  config.loadFile(files);
+}
+
+config.validate();
+
+console.log('configuration: ', config.toString());
 
 module.exports = config;
