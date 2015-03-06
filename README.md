@@ -19,7 +19,7 @@ Run
 ====
 To start the SimplePush server, run:
 
-    node index.js
+    node ./bin/simplepush
 
 To run the examples, start the AppServer:
 
